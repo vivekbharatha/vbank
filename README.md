@@ -5,8 +5,8 @@ NOTE: This is still in WIP (Work In Progress)
 A banking application built with microservices architecture.
 
 ## 🚀 Services Overview
-
-PLACEHOLDER FOR ARCHITECTURE DIAGRAM
+> [!NOTE]  
+> Placeholder for architecture diagram
 
 ### Core Services
 
