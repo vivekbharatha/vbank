@@ -1,20 +1,22 @@
 meta {
-  name: auth register
+  name: auth login
   type: http
-  seq: 3
+  seq: 4
 }
 
 post {
-  url: {{api-gateway-base-url}}/api/v1/auth/register
+  url: {{api-gateway-base-url}}/api/v1/auth/login
   body: json
   auth: none
 }
 
 body:json {
   {
-    "firstName": "vivek",
-    "lastName": "bharatha",
     "email": "vivek@vbank.com",
     "password": "ihavetoremember"
   }
+}
+
+script:post-response {
+  bru.setEnvVar("token",res.body.token)
 }

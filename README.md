@@ -5,6 +5,7 @@ NOTE: This is still in WIP (Work In Progress)
 A banking application built with microservices architecture.
 
 ## 🚀 Services Overview
+
 > [!NOTE]  
 > Placeholder for architecture diagram
 
@@ -23,6 +24,7 @@ A banking application built with microservices architecture.
 | ------------ | ---- | -------------------------- |
 | Redis        | 6379 | Cache & session management |
 | Redis UI     | 8001 | Redis management interface |
+| Kafka UI     | 8080 | Kafka management interface |
 
 ## 🛠️ Tech Stack
 

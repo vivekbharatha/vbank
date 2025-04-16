@@ -1,0 +1,22 @@
+meta {
+  name: auth logout
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{api-gateway-base-url}}/api/v1/auth/logout
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "email": "vivek@vbank.com",
+    "password": "ihavetoremember"
+  }
+}
