@@ -2,6 +2,7 @@
 	"info": {
 		"_postman_id": "01c5e154-66f4-4cd5-8f74-7ef04cd216ee",
 		"name": "VBank",
+		"description": "A banking application built with microservices architecture",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "32703627"
 	},
@@ -12,9 +13,9 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{base_url}}/health",
+					"raw": "{{base_url_gateway}}/health",
 					"host": [
-						"{{base_url}}"
+						"{{base_url_gateway}}"
 					],
 					"path": [
 						"health"
