@@ -1,0 +1,164 @@
+{
+	"info": {
+		"_postman_id": "01c5e154-66f4-4cd5-8f74-7ef04cd216ee",
+		"name": "VBank",
+		"description": "A banking application built with microservices architecture",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "32703627"
+	},
+	"item": [
+		{
+			"name": "API Gateway Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url_gateway}}/health",
+					"host": [
+						"{{base_url_gateway}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "auth service health",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "key",
+						"value": " Authorization",
+						"type": "text"
+					},
+					{
+						"key": "value",
+						"value": " Bearer {{token}}",
+						"type": "text",
+						"disabled": true
+					},
+					{
+						"key": "type",
+						"value": " text",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url_auth}}/health",
+					"host": [
+						"{{base_url_auth}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "auth login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"const jsonData = pm.response.json();\r",
+							"pm.environment.set(\"token\", jsonData.token);\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"email\": \"vivek@vbank.com\",\r\n    \"password\": \"ihavetoremember\"\r\n  }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url_gateway}}/api/v1/auth/login",
+					"host": [
+						"{{base_url_gateway}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "auth register",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"firstName\": \"vivek\",\r\n    \"lastName\": \"bharatha\",\r\n    \"email\": \"vivek@vbank.com\",\r\n    \"password\": \"ihavetoremember\"\r\n  }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url_gateway}}/api/v1/auth/register",
+					"host": [
+						"{{base_url_gateway}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
