@@ -1,0 +1,11 @@
+meta {
+  name: health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{auth-service-base-url}}/health
+  body: none
+  auth: none
+}

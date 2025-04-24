@@ -1,0 +1,15 @@
+meta {
+  name: delete
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{api-gateway-base-url}}/api/v1/accounts/132025132383152
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

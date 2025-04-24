@@ -3,12 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import redis from '../config/redis';
 
-const publicRoutes = [
-  '/',
-  '/health',
-  '/api/v1/auth/login',
-  '/api/v1/auth/register',
-];
+const publicRoutes = ['/', '/health'];
 
 export const verifyToken = (
   req: Request,

@@ -1,0 +1,15 @@
+meta {
+  name: list
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{api-gateway-base-url}}/api/v1/accounts/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
