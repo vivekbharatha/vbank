@@ -6,7 +6,7 @@
   "configurations": [
     {
       "name": "api-gateway",
-      "cwd": "${workspaceFolder}/api-gateway",
+      "cwd": "${workspaceFolder}/services/api-gateway",
       "request": "launch",
       "runtimeArgs": ["run", "start"],
       "runtimeExecutable": "npm",
@@ -15,7 +15,7 @@
     },
     {
       "name": "auth-service",
-      "cwd": "${workspaceFolder}/auth-service",
+      "cwd": "${workspaceFolder}/services/auth-service",
       "request": "launch",
       "runtimeArgs": ["run", "start"],
       "runtimeExecutable": "npm",
@@ -24,7 +24,7 @@
     },
     {
       "name": "account-service",
-      "cwd": "${workspaceFolder}/account-service",
+      "cwd": "${workspaceFolder}/services/account-service",
       "request": "launch",
       "runtimeArgs": ["run", "start"],
       "runtimeExecutable": "npm",

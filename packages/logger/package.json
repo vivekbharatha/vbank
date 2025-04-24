@@ -1,0 +1,21 @@
+{
+  "name": "@vbank/logger",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "logger private package for vbank",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "build:pack": "tsc && npm pack"
+  },
+  "dependencies": {
+    "winston": "^3.17.0"
+  },
+  "license": "MIT",
+  "author": "vivekbharatha",
+  "devDependencies": {
+    "@types/node": "^22.13.13",
+    "typescript": "^5.8.2"
+  }
+}

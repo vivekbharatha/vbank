@@ -1,0 +1,21 @@
+{
+  "name": "@vbank/kafka-client",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "description": "kafka-client private package for vbank",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "build:pack": "tsc && npm pack"
+  },
+  "dependencies": {
+    "@vbank/logger": "../logger",
+    "kafkajs": "^2.2.4"
+  },
+  "license": "MIT",
+  "author": "vivekbharatha",
+  "devDependencies": {
+    "@types/node": "^22.13.13",
+    "typescript": "^5.8.2"
+  }
+}
