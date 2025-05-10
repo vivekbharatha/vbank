@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-import { AccountType, TransactionType } from '../entity/account.entity';
+import { AccountType } from '../entity/account.entity';
 import { AccountService } from '../services/account.service';
 import { SAVINGS_ACCOUNT } from '../constants';
+import { TransactionType } from '../types/transaction.types';
 
 const createSchema = z.object({
   accountType: z
@@ -44,6 +45,15 @@ export class AccountController {
     return res.status(200).json(accounts);
   }
 
+  async get(req: Request, res: Response): Promise<any> {
+    const accounts = await this.accountService.findByAccountNumber(
+      req.params.accountNumber,
+      parseInt(req.params.userId),
+    );
+
+    return res.status(200).json(accounts);
+  }
+
   async delete(req: Request, res: Response): Promise<any> {
     await this.accountService.delete(req.userId, req.params.accountNumber);
 
@@ -54,7 +64,6 @@ export class AccountController {
     const { accountNumber, amount, type } = transactionSchema.parse(req.body);
 
     const account = await this.accountService.updateBalance(
-      req.userId,
       accountNumber,
       type,
       amount,

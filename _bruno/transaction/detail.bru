@@ -1,0 +1,15 @@
+meta {
+  name: detail
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{api-gateway-base-url}}/api/v1/transactions/{{latestTransactionId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

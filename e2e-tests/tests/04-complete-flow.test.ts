@@ -1,3 +1,4 @@
+import { AccountType } from "./type";
 import {
   apiGateway,
   cleanupResources,
@@ -16,14 +17,14 @@ describe("Complete End-to-End Flow", () => {
     await cleanupResources();
   });
 
-  test("1. Register new user", async () => {
+  test("Register new user", async () => {
     const response = await registerUser(testState.currentTestUser);
 
     expect(response.status).toBe(201);
     expect(response.body.email).toBe(testState.currentTestUser.email);
   });
 
-  test("2. Login with new user", async () => {
+  test("Login with new user", async () => {
     const response = await loginUser({
       email: testState.currentTestUser.email,
       password: testState.currentTestUser.password,
@@ -37,7 +38,7 @@ describe("Complete End-to-End Flow", () => {
     expect(testState.authToken).not.toBe("");
   });
 
-  test("3. Create first account (current)", async () => {
+  test("Create first account (current)", async () => {
     const response = await apiGateway()
       .post("/api/v1/accounts")
       .set("Authorization", `Bearer ${testState.authToken}`)
@@ -55,7 +56,7 @@ describe("Complete End-to-End Flow", () => {
     testState.accounts.push(response.body);
   });
 
-  test("4. Create second account (savings)", async () => {
+  test("Create second account (savings)", async () => {
     const response = await apiGateway()
       .post("/api/v1/accounts")
       .set("Authorization", `Bearer ${testState.authToken}`)
@@ -73,7 +74,7 @@ describe("Complete End-to-End Flow", () => {
     testState.accounts.push(response.body);
   });
 
-  test("5. List all accounts", async () => {
+  test("List all accounts", async () => {
     const response = await apiGateway()
       .get("/api/v1/accounts")
       .set("Authorization", `Bearer ${testState.authToken}`);
@@ -91,7 +92,7 @@ describe("Complete End-to-End Flow", () => {
     }
   });
 
-  test("6. Internal credit", async () => {
+  test("Internal credit", async () => {
     const amount = 10900.01;
 
     const response = await apiGateway()
@@ -112,7 +113,7 @@ describe("Complete End-to-End Flow", () => {
     testState.accounts[0].balance = response.body.availableBalance;
   });
 
-  test("7. Internal debit", async () => {
+  test("Internal debit", async () => {
     const amount = 900.02;
 
     const response = await apiGateway()
@@ -134,7 +135,7 @@ describe("Complete End-to-End Flow", () => {
     testState.accounts[0].balance = response.body.availableBalance;
   });
 
-  test("8. List all accounts & check balance", async () => {
+  test("List all accounts & check balance", async () => {
     const response = await apiGateway()
       .get("/api/v1/accounts")
       .set("Authorization", `Bearer ${testState.authToken}`);
@@ -151,7 +152,248 @@ describe("Complete End-to-End Flow", () => {
     expect(currentAccount.balance).toBe(testState.accounts[0].balance);
   });
 
-  test("9. Delete first account", async () => {
+  test("Transfer money between internal accounts should success", async () => {
+    const amount = 1000;
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber,
+        destinationAccountNumber: testState.accounts[1].accountNumber,
+        amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 5) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "completed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.sourceDebitedAt).not.toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+          expect(statusResponse.body.destinationCreditedAt).not.toBeNull();
+
+          expect(statusResponse.body.compensatedAt).toBeNull();
+
+          const finalSourceAccountBalance =
+            testState.accounts[0].balance - amount;
+          const finalDestinationAccountBalance =
+            testState.accounts[1].balance + amount;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+          expect(testState.accounts[1].balance).toBe(
+            finalDestinationAccountBalance
+          );
+
+          resolve(statusResponse.body);
+        }
+      }, 1000);
+    });
+  });
+
+  test("Transfer: invalid source account number should fail", async () => {
+    const amount = 1000;
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber + "001",
+        destinationAccountNumber: testState.accounts[1].accountNumber,
+        amount: amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 5) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "failed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.sourceDebitedAt).toBeNull();
+          expect(statusResponse.body.destinationCreditedAt).toBeNull();
+          expect(statusResponse.body.compensatedAt).toBeNull();
+
+          expect(statusResponse.body.completedAt).not.toBeNull();
+
+          const finalSourceAccountBalance = testState.accounts[0].balance;
+          const finalDestinationAccountBalance = testState.accounts[1].balance;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+          expect(testState.accounts[1].balance).toBe(
+            finalDestinationAccountBalance
+          );
+
+          resolve(statusResponse.body);
+        }
+      }, 1000);
+    });
+  });
+
+  test("Transfer: invalid destination account number should fail and compensate", async () => {
+    const amount = 1000;
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber,
+        destinationAccountNumber: testState.accounts[1].accountNumber + "001",
+        amount: amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 5) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "failed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.destinationCreditedAt).toBeNull();
+
+          expect(statusResponse.body.sourceDebitedAt).not.toBeNull();
+          expect(statusResponse.body.compensatedAt).not.toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+
+          const finalSourceAccountBalance = testState.accounts[0].balance;
+          const finalDestinationAccountBalance = testState.accounts[1].balance;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+          expect(testState.accounts[1].balance).toBe(
+            finalDestinationAccountBalance
+          );
+
+          resolve(statusResponse.body);
+        }
+      }, 1000);
+    });
+  });
+
+  test("Transfer: insufficient funds - should fail", async () => {
+    const amount = 1000000;
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber,
+        destinationAccountNumber: testState.accounts[1].accountNumber + "001",
+        amount: amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 5) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "failed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.destinationCreditedAt).toBeNull();
+          expect(statusResponse.body.sourceDebitedAt).toBeNull();
+          expect(statusResponse.body.compensatedAt).toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+
+          const finalSourceAccountBalance = testState.accounts[0].balance;
+          const finalDestinationAccountBalance = testState.accounts[1].balance;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+          expect(testState.accounts[1].balance).toBe(
+            finalDestinationAccountBalance
+          );
+
+          resolve(statusResponse.body);
+        }
+      }, 1000);
+    });
+  });
+
+  test("Delete first account", async () => {
     const accountToDelete = testState.accounts[0];
 
     const response = await apiGateway()
@@ -167,7 +409,7 @@ describe("Complete End-to-End Flow", () => {
     );
   });
 
-  test("10. Logout user", async () => {
+  test("Logout user", async () => {
     const response = await apiGateway()
       .post("/api/v1/auth/logout")
       .set("Authorization", `Bearer ${testState.authToken}`);
@@ -178,3 +420,21 @@ describe("Complete End-to-End Flow", () => {
     testState.authToken = "";
   });
 });
+
+async function refreshAccounts() {
+  const response = await apiGateway()
+    .get("/api/v1/accounts/")
+    .set("Authorization", `Bearer ${testState.authToken}`);
+
+  const accounts = response.body;
+
+  testState.accounts[0] = accounts.find(
+    (account: AccountType) =>
+      account.accountNumber === testState.accounts[0].accountNumber
+  );
+
+  testState.accounts[1] = accounts.find(
+    (account: AccountType) =>
+      account.accountNumber === testState.accounts[1].accountNumber
+  );
+}

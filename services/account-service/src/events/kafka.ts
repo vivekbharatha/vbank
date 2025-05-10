@@ -2,7 +2,9 @@ import KafkaClient from '@vbank/kafka-client';
 import { config } from '../config';
 import logger from '../config/logger';
 
-const kafkaClient = new KafkaClient(config.SERVICE_NAME, [config.KAFKA_BROKER]);
+export const kafkaClient = new KafkaClient(config.SERVICE_NAME, [
+  config.KAFKA_BROKER,
+]);
 
 export const producer = kafkaClient.getProducer();
 

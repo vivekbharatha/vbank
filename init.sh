@@ -12,6 +12,7 @@ TOPICS=(
   "user.registered"
   "account.created"
   "account.deleted"
+  "transaction.events"  # Single unified topic for transaction events
 )
 
 echo "Connecting to Kafka container: $DOCKER_CONTAINER"

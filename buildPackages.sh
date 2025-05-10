@@ -9,6 +9,7 @@ set -e
 # Store the root directory
 ROOT_DIR="$(pwd)"
 PACKAGES_DIR="$ROOT_DIR/packages"
+SERVICES_DIR="$ROOT_DIR/services"
 
 # Check if npm is installed
 if ! command -v npm &>/dev/null; then
@@ -33,3 +34,26 @@ build_package "constants"
 build_package "kafka-client"
 
 echo "=====Build Process Completed Successfully====="
+
+# Install dependencies in each service
+echo "=====Installing Dependencies in Services====="
+
+# Function to install dependencies for a service
+install_service_deps() {
+  local service_name=$1
+  echo "Installing dependencies for service: $service_name"
+  npm i --prefix "$SERVICES_DIR/$service_name"
+}
+
+# Get list of service directories
+if [ -d "$SERVICES_DIR" ]; then
+  for service in "$SERVICES_DIR"/*; do
+    if [ -d "$service" ]; then
+      service_name=$(basename "$service")
+      install_service_deps "$service_name"
+    fi
+  done
+  echo "=====Service Dependencies Installation Completed====="
+else
+  echo "Services directory not found at $SERVICES_DIR"
+fi

@@ -1,5 +1,4 @@
 import { BaseProducer, KafkaMessage } from '@vbank/kafka-client';
-import logger from '../../config/logger';
 import { USER_TOPICS } from '@vbank/constants';
 
 const { producer } = require('../kafka');

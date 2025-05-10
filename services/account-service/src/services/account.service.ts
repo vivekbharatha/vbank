@@ -1,16 +1,13 @@
 import { AppDataSource } from '../data-source';
 import { Repository } from 'typeorm';
-import {
-  AccountType,
-  Account,
-  TransactionType,
-} from '../entity/account.entity';
+import { AccountType, Account } from '../entity/account.entity';
 import { createError, generateAccountNumber } from '../utils';
 import { ERROR_CODES } from '@vbank/constants';
 import { publishAccountCreated } from '../events/producers/accountCreated.producer';
 import logger from '../config/logger';
 import { publishAccountDeleted } from '../events/producers/accountDeleted.producer';
 import { SAVINGS_ACCOUNT } from '../constants';
+import { TransactionType } from '../types/transaction.types';
 
 interface AccountCreateDto {
   userId: number;
@@ -64,6 +61,19 @@ export class AccountService {
     return accounts;
   }
 
+  async findByAccountNumber(accountNumber: string, userId?: number) {
+    const account = await this.accountRepository.findOneBy({
+      accountNumber,
+      ...(userId ? { userId } : {}),
+    });
+
+    if (!account) {
+      throw createError('account not found', 404);
+    }
+
+    return account;
+  }
+
   async delete(userId: number, accountNumber: string) {
     const account = await this.accountRepository.findOneBy({
       userId,
@@ -101,13 +111,13 @@ export class AccountService {
   }
 
   async updateBalance(
-    userId: number,
     accountNumber: string,
     type: TransactionType,
     amount: number,
   ) {
+    amount = Math.abs(amount);
+
     const account = await this.accountRepository.findOneBy({
-      userId,
       accountNumber,
     });
 

@@ -7,6 +7,11 @@ const accountController = new AccountController(accountService);
 
 accountRouter.post('/', accountController.create.bind(accountController));
 accountRouter.get('/', accountController.list.bind(accountController));
+accountRouter.get(
+  '/:accountNumber',
+  accountController.get.bind(accountController),
+);
+
 accountRouter.delete(
   '/:accountNumber',
   accountController.delete.bind(accountController),

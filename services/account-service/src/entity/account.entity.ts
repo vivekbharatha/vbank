@@ -17,11 +17,6 @@ export enum AccountStatus {
   CLOSED = 'closed',
 }
 
-export enum TransactionType {
-  CREDIT = 'credit',
-  DEBIT = 'debit',
-}
-
 export class DecimalColumnTransformer {
   to(data: number): number {
     return data;

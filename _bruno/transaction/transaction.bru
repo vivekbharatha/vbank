@@ -1,0 +1,28 @@
+meta {
+  name: transaction
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{api-gateway-base-url}}/api/v1/transactions/transfer
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "sourceAccountNumber": "132025130517556",
+    "destinationAccountNumber": "112025119595542",
+    "amount": 100,
+    "note": "gift"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("latestTransactionId", res.body.transactionId)
+}

@@ -1,8 +1,18 @@
-import { testState, loginUser, cleanupResources, apiGateway } from "./utils";
+import {
+  testState,
+  loginUser,
+  cleanupResources,
+  apiGateway,
+  getTestUser,
+  registerUser,
+} from "./utils";
 
 describe("Account Service Tests", () => {
   beforeAll(async () => {
     if (!testState.authToken) {
+      testState.currentTestUser = getTestUser();
+      await registerUser(testState.currentTestUser);
+
       await loginUser({
         email: testState.currentTestUser.email,
         password: testState.currentTestUser.password,
@@ -37,13 +47,13 @@ describe("Account Service Tests", () => {
       .set("Authorization", `Bearer ${testState.authToken}`)
       .send({
         accountType: "savings",
-        accountName: "Test Savings Account",
+        accountName: "E2E Savings Account",
       });
 
     expect(response.status).toBe(201);
     expect(response.body).toHaveProperty("id");
     expect(response.body).toHaveProperty("accountType", "savings");
-    expect(response.body).toHaveProperty("accountName", "Test Savings Account");
+    expect(response.body).toHaveProperty("accountName", "E2E Savings Account");
 
     testState.accounts.push(response.body);
   });

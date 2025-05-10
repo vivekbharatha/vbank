@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express, { NextFunction, Request, Response } from 'express';
+import express from 'express';
 import { verifyToken } from './middlewares/auth.middleware';
 import { accountRouter, indexRouter } from './routes';
 import logger from './config/logger';
