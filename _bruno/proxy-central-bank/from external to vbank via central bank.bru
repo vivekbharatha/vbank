@@ -1,0 +1,26 @@
+meta {
+  name: from external to vbank via central bank
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:5010/api/v1/transfers/outbound
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-API-KEY: nQSu21EUS5Xl1yv1hOKqmz3xXRX1p3vokEBDTlL2mXtksu7fCW6bg6g6lDJop9E7
+}
+
+body:json {
+  {
+    "sourceAccount": "111111130517511",
+    "destinationAccount": "1320251305175561",
+    "sourceBankCode": "SBANK",
+    "destinationBankCode": "VBANK",
+    "amount": 100,
+    "note": "haha"
+  }
+}

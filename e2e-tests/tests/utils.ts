@@ -26,6 +26,8 @@ export const cleanUpTestState = () => {
 export const apiGateway = () => request(config.apiGatewayUrl);
 export const authService = () => request(config.authServiceUrl);
 export const accountService = () => request(config.accountServiceUrl);
+export const proxyCentralBankService = () =>
+  request(config.centralBankServiceUrl);
 
 export async function registerUser(user: UserType) {
   const response = await apiGateway().post("/api/v1/auth/register").send(user);

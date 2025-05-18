@@ -1,3 +1,5 @@
+export const BANK_CODE = "VBANK";
+
 export const USER_TOPICS = {
   ACCOUNT_CREATED: "account.created",
   ACCOUNT_DELETED: "account.deleted",
@@ -24,3 +26,40 @@ export const ERROR_CODES = {
   INSUFFICIENT_BALANCE: "ET02",
   TRANSACTION_FAILED: "ET03",
 };
+
+export enum TransactionStatus {
+  INITIATED = "initiated",
+  DEBIT_SUCCESS = "debit_success",
+  CREDIT_SUCCESS = "credit_success",
+  FAILED = "failed",
+  CREDIT_FAILED = "credit_failed",
+  DEBIT_COMPENSATE = "debit_compensate",
+  COMPENSATION_SUCCESS = "compensation_success",
+  COMPLETED = "completed",
+}
+
+export interface TransactionEventData {
+  userId?: number;
+  transactionId: string;
+  eventType: string;
+  status: TransactionStatus;
+  amount: number;
+  sourceAccountNumber: string;
+  destinationAccountNumber: string;
+  transactionType: string;
+  isInternal: boolean;
+  timestamp?: number;
+  isSourceExternal?: boolean;
+  isDestinationExternal?: boolean;
+  sourceBankCode?: string;
+  destinationBankCode?: string;
+  sourceAccountBalance?: number;
+  destinationAccountBalance?: number;
+  sourceDebitedAt?: Date;
+  destinationCreditedAt?: Date;
+  compensatedAt?: Date;
+  note?: string;
+  referenceId?: string;
+  error?: string;
+  errorCode?: string;
+}

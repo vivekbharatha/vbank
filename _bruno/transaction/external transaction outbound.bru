@@ -1,0 +1,30 @@
+meta {
+  name: external transaction outbound
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{api-gateway-base-url}}/api/v1/transactions/transfer/external/outbound
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "sourceAccountNumber": "132025130517556",
+    "destinationAccountNumber": "112025119595542",
+    "sourceBankCode": "VBANK",
+    "destinationBankCode": "SBANK",
+    "amount": 400,
+    "note": "gift"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("latestTransactionId", res.body.transactionId)
+}

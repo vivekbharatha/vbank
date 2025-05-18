@@ -1,0 +1,15 @@
+meta {
+  name: by referenceId
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{api-gateway-base-url}}/api/v1/transactions/by-reference/VBANK-1746963548808
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

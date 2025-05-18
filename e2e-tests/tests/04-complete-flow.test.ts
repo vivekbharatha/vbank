@@ -1,9 +1,11 @@
+import { config } from "./config";
 import { AccountType } from "./type";
 import {
   apiGateway,
   cleanupResources,
   cleanUpTestState,
   loginUser,
+  proxyCentralBankService,
   registerUser,
   testState,
 } from "./utils";
@@ -390,6 +392,371 @@ describe("Complete End-to-End Flow", () => {
           resolve(statusResponse.body);
         }
       }, 1000);
+    });
+  });
+
+  test("External Transfer: outbound should success", async () => {
+    const amount = 200; // this is to trigger success case in proxy central bank service
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer/external/outbound")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber,
+        destinationAccountNumber: "111111111111111",
+        sourceBankCode: "VBANK",
+        destinationBankCode: "SBANK",
+        note: "Test transfer success",
+        amount: amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+    const referenceId = response.body.referenceId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 10) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "completed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.referenceId).toBe(referenceId);
+
+          expect(statusResponse.body.sourceDebitedAt).not.toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+          expect(statusResponse.body.destinationCreditedAt).not.toBeNull();
+
+          expect(statusResponse.body.compensatedAt).toBeNull();
+
+          expect(statusResponse.body.destinationBankCode).toBe("SBANK");
+          expect(statusResponse.body.sourceBankCode).toBe("VBANK");
+          expect(statusResponse.body.destinationAccountNumber).toBe(
+            "111111111111111"
+          );
+          expect(statusResponse.body.sourceAccountNumber).toBe(
+            testState.accounts[0].accountNumber
+          );
+          expect(statusResponse.body.note).toBe("Test transfer success");
+
+          const finalSourceAccountBalance =
+            testState.accounts[0].balance - amount;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+
+          resolve(statusResponse.body);
+        }
+      }, 2000);
+    });
+  });
+
+  test("External Transfer: outbound should fail and compensate", async () => {
+    const amount = 400; // this is to trigger failure case in proxy central bank service
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer/external/outbound")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber,
+        destinationAccountNumber: "111111111111111",
+        sourceBankCode: "VBANK",
+        destinationBankCode: "SBANK",
+        note: "Test transfer failure",
+        amount: amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+    const referenceId = response.body.referenceId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 10) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "failed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.referenceId).toBe(referenceId);
+          expect(statusResponse.body.destinationCreditedAt).toBeNull();
+
+          expect(statusResponse.body.sourceDebitedAt).not.toBeNull();
+          expect(statusResponse.body.compensatedAt).not.toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+
+          expect(statusResponse.body.destinationBankCode).toBe("SBANK");
+          expect(statusResponse.body.sourceBankCode).toBe("VBANK");
+          expect(statusResponse.body.destinationAccountNumber).toBe(
+            "111111111111111"
+          );
+          expect(statusResponse.body.sourceAccountNumber).toBe(
+            testState.accounts[0].accountNumber
+          );
+          expect(statusResponse.body.note).toBe("Test transfer failure");
+
+          const finalSourceAccountBalance = testState.accounts[0].balance;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+
+          resolve(statusResponse.body);
+        }
+      }, 2000);
+    });
+  });
+
+  test("External Transfer: outbound should fail due to insufficient funds", async () => {
+    const amount = 1000000;
+
+    const response = await apiGateway()
+      .post("/api/v1/transactions/transfer/external/outbound")
+      .set("Authorization", `Bearer ${testState.authToken}`)
+      .send({
+        sourceAccountNumber: testState.accounts[0].accountNumber,
+        destinationAccountNumber: "111111111111111",
+        sourceBankCode: "VBANK",
+        destinationBankCode: "SBANK",
+        note: "Test transfer insufficient funds",
+        amount: amount,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("status", "initiated");
+    expect(response.body).toHaveProperty("transactionId");
+    expect(response.body.transactionId).toContain("VBNK");
+
+    const transactionId = response.body.transactionId;
+    const referenceId = response.body.referenceId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 10) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/${transactionId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "failed") {
+          clearInterval(transactionStatusInterval);
+
+          expect(statusResponse.body.referenceId).toBe(referenceId);
+          expect(statusResponse.body.destinationCreditedAt).toBeNull();
+          expect(statusResponse.body.sourceDebitedAt).toBeNull();
+          expect(statusResponse.body.compensatedAt).toBeNull();
+
+          expect(statusResponse.body.completedAt).not.toBeNull();
+
+          expect(statusResponse.body.destinationBankCode).toBe("SBANK");
+          expect(statusResponse.body.sourceBankCode).toBe("VBANK");
+          expect(statusResponse.body.destinationAccountNumber).toBe(
+            "111111111111111"
+          );
+          expect(statusResponse.body.sourceAccountNumber).toBe(
+            testState.accounts[0].accountNumber
+          );
+          expect(statusResponse.body.note).toBe(
+            "Test transfer insufficient funds"
+          );
+
+          const finalSourceAccountBalance = testState.accounts[0].balance;
+          await refreshAccounts();
+          expect(testState.accounts[0].balance).toBe(finalSourceAccountBalance);
+
+          resolve(statusResponse.body);
+        }
+      }, 2000);
+    });
+  });
+
+  test("External Transfer: inbound should success", async () => {
+    const amount = 1000;
+
+    // Simulate an external transfer from another bank to VBANK via central bank
+    const cbResponse = await proxyCentralBankService()
+      .post("/api/v1/transfers/outbound")
+      .set("x-api-key", config.centralBankServiceApiKey)
+      .send({
+        sourceAccount: "222222222222222",
+        destinationAccount: testState.accounts[1].accountNumber,
+        sourceBankCode: "SBANK",
+        destinationBankCode: "VBANK",
+        note: "Test transfer success",
+        amount,
+      });
+
+    expect(cbResponse.status).toBe(200);
+    expect(cbResponse.body).toHaveProperty("status", "PENDING");
+
+    const referenceId = cbResponse.body.transferId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 10) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/by-reference/${referenceId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "completed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.referenceId).toBe(referenceId);
+
+          expect(statusResponse.body.sourceDebitedAt).not.toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+          expect(statusResponse.body.destinationCreditedAt).not.toBeNull();
+
+          expect(statusResponse.body.compensatedAt).toBeNull();
+
+          expect(statusResponse.body.destinationBankCode).toBe("VBANK");
+          expect(statusResponse.body.sourceBankCode).toBe("SBANK");
+          expect(statusResponse.body.destinationAccountNumber).toBe(
+            testState.accounts[1].accountNumber
+          );
+          expect(statusResponse.body.sourceAccountNumber).toBe(
+            "222222222222222"
+          );
+          expect(statusResponse.body.note).toBe("Test transfer success");
+
+          const finalDestinationAccountBalance =
+            testState.accounts[1].balance + amount;
+          await refreshAccounts();
+          expect(testState.accounts[1].balance).toBe(
+            finalDestinationAccountBalance
+          );
+
+          resolve(statusResponse.body);
+        }
+      }, 2000);
+    });
+  });
+
+  test("External Transfer: inbound should fail due to invalid vbank destination account", async () => {
+    const amount = 1000;
+
+    // Simulate an external transfer from another bank to VBANK via central bank
+    const cbResponse = await proxyCentralBankService()
+      .post("/api/v1/transfers/outbound")
+      .set("x-api-key", config.centralBankServiceApiKey)
+      .send({
+        sourceAccount: "222222222222222",
+        destinationAccount: testState.accounts[1].accountNumber + "001",
+        sourceBankCode: "SBANK",
+        destinationBankCode: "VBANK",
+        note: "Test transfer failure invalid destination account",
+        amount,
+      });
+
+    expect(cbResponse.status).toBe(200);
+    expect(cbResponse.body).toHaveProperty("status", "PENDING");
+
+    const referenceId = cbResponse.body.transferId;
+
+    await new Promise((resolve, reject) => {
+      let intervalCounter = 0;
+      const transactionStatusInterval = setInterval(async () => {
+        intervalCounter++;
+        if (intervalCounter > 10) {
+          clearInterval(transactionStatusInterval);
+          reject();
+          return;
+        }
+
+        const statusResponse = await apiGateway()
+          .get(`/api/v1/transactions/by-reference/${referenceId}`)
+          .set("Authorization", `Bearer ${testState.authToken}`);
+
+        expect(statusResponse.status).toBe(200);
+        expect(statusResponse.body).toHaveProperty("amount", amount);
+
+        const status = statusResponse.body.status;
+
+        if (status === "failed") {
+          clearInterval(transactionStatusInterval);
+          expect(statusResponse.body.referenceId).toBe(referenceId);
+          expect(statusResponse.body.destinationCreditedAt).toBeNull();
+
+          expect(statusResponse.body.sourceDebitedAt).not.toBeNull();
+          expect(statusResponse.body.completedAt).not.toBeNull();
+
+          expect(statusResponse.body.compensatedAt).toBeNull();
+
+          expect(statusResponse.body.destinationBankCode).toBe("VBANK");
+          expect(statusResponse.body.sourceBankCode).toBe("SBANK");
+          expect(statusResponse.body.destinationAccountNumber).toBe(
+            testState.accounts[1].accountNumber + "001"
+          );
+          expect(statusResponse.body.sourceAccountNumber).toBe(
+            "222222222222222"
+          );
+          expect(statusResponse.body.note).toBe(
+            "Test transfer failure invalid destination account"
+          );
+
+          const finalDestinationAccountBalance = testState.accounts[1].balance;
+          await refreshAccounts();
+          expect(testState.accounts[1].balance).toBe(
+            finalDestinationAccountBalance
+          );
+
+          resolve(statusResponse.body);
+        }
+      }, 2000);
     });
   });
 

@@ -1,0 +1,25 @@
+meta {
+  name: from vbank to central bank
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:5010/api/v1/transfers/inbound
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-API-KEY: nQSu21EUS5Xl1yv1hOKqmz3xXRX1p3vokEBDTlL2mXtksu7fCW6bg6g6lDJop9E7
+}
+
+body:json {
+  {
+    "sourceAccount": "21",
+    "destinationAccount": "34",
+    "amount": 200,
+    "callbackUrl": "http://localhost:3000/api/v1/transactions/external/receipt",
+    "referenceId": "MMymZtcxIbu-kp1ktrGVV"
+  }
+}

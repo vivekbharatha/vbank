@@ -1,10 +1,14 @@
 import { Consumer } from 'kafkajs';
-import { TRANSACTION_TOPICS, TRANSACTION_EVENT_TYPES } from '@vbank/constants';
-import { TransactionStatus } from '../../entity/transaction.entity';
+import {
+  TRANSACTION_TOPICS,
+  TRANSACTION_EVENT_TYPES,
+  TransactionEventData,
+  TransactionStatus,
+} from '@vbank/constants';
 import { transactionService } from '../../services/transaction.service';
 import logger from '../../config/logger';
 import { createConsumer } from '../kafka';
-import { TransactionEventData } from '../producers/transactionEvents.producer';
+import { publishTransactionEvent } from '../producers/transactionEvents.producer';
 
 export const startTransactionEventsConsumer = async (): Promise<Consumer> => {
   const consumer = createConsumer('ts-transaction-events-cg');
@@ -35,45 +39,23 @@ export const startTransactionEventsConsumer = async (): Promise<Consumer> => {
 
         switch (eventType) {
           case TRANSACTION_EVENT_TYPES.ACCOUNT_DEBITED:
-            await transactionService.updateStatus(transactionId, {
-              status: TransactionStatus.DEBIT_SUCCESS,
-              sourceDebitedAt: eventData.sourceDebitedAt,
-            });
+            await handleAccountDebited(eventData);
             break;
 
           case TRANSACTION_EVENT_TYPES.ACCOUNT_CREDITED:
-            await transactionService.updateStatus(transactionId, {
-              status: TransactionStatus.COMPLETED,
-              destinationCreditedAt: eventData.destinationCreditedAt,
-              completedAt: eventData.destinationCreditedAt,
-            });
+            await handleAccountCredited(eventData);
             break;
 
           case TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_FAILED:
-            const { error, errorCode } = eventData;
-            await transactionService.updateStatus(transactionId, {
-              status: TransactionStatus.FAILED,
-              errorDetails: `event: ${TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_FAILED}, error: ${error}, errorCode: ${errorCode}`,
-              completedAt: new Date(eventData.timestamp!),
-            });
+            await handleAccountDebitFailed(eventData);
             break;
 
           case TRANSACTION_EVENT_TYPES.ACCOUNT_CREDIT_FAILED:
-            const creditError = eventData.error;
-            const creditErrorCode = eventData.errorCode;
-            await transactionService.updateStatus(transactionId, {
-              status: TransactionStatus.CREDIT_FAILED,
-              errorDetails: `event: ${TRANSACTION_EVENT_TYPES.ACCOUNT_CREDIT_FAILED}, error: ${creditError}, errorCode: ${creditErrorCode}`,
-            });
+            await handleAccountCreditFailed(eventData);
             break;
 
           case TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_COMPENSATED:
-            await transactionService.updateStatus(transactionId, {
-              status: TransactionStatus.FAILED,
-              errorDetails: `event: ${TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_COMPENSATED}`,
-              compensatedAt: eventData.compensatedAt,
-              completedAt: eventData.compensatedAt,
-            });
+            await handleAccountDebitCompensated(eventData);
             break;
 
           default:
@@ -92,3 +74,106 @@ export const startTransactionEventsConsumer = async (): Promise<Consumer> => {
 
   return consumer;
 };
+
+async function handleAccountDebited(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const { transactionId, isDestinationExternal } = eventData;
+
+  await transactionService.updateStatus(transactionId, {
+    status: TransactionStatus.DEBIT_SUCCESS,
+    sourceDebitedAt: eventData.sourceDebitedAt,
+  });
+
+  if (!isDestinationExternal) {
+    return;
+  }
+
+  try {
+    await transactionService.externalCredit(eventData);
+  } catch (error: any) {
+    await publishTransactionEvent({
+      ...eventData,
+      eventType: TRANSACTION_EVENT_TYPES.ACCOUNT_CREDIT_FAILED,
+      error: error.message || error.string || error.toString(),
+      errorCode: error.errorCode || null,
+    });
+
+    logger.error(
+      `Failed to credit account for transaction ${transactionId}: ${error.message}`,
+    );
+  }
+}
+
+async function handleAccountCredited(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const { transactionId, isSourceExternal } = eventData;
+
+  await transactionService.updateStatus(transactionId, {
+    status: TransactionStatus.COMPLETED,
+    destinationCreditedAt: eventData.destinationCreditedAt,
+    completedAt: eventData.destinationCreditedAt,
+  });
+
+  if (!isSourceExternal) {
+    return;
+  }
+
+  try {
+    await transactionService.notifyCentralBank(eventData);
+  } catch (error: any) {
+    logger.error(
+      `Failed to notify central bank for transaction ${transactionId}: ${error.message}`,
+    );
+  }
+}
+
+async function handleAccountCreditFailed(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const { transactionId, isSourceExternal, error, errorCode } = eventData;
+
+  // Set the transaction status to FAILED directly as it's an external inbound transaction
+  // no compensation logic needed for this scope of course
+  await transactionService.updateStatus(transactionId, {
+    status: TransactionStatus.FAILED,
+    completedAt: new Date(),
+    errorDetails: `event: ${TRANSACTION_EVENT_TYPES.ACCOUNT_CREDIT_FAILED}, error: ${error}, errorCode: ${errorCode}`,
+  });
+
+  if (!isSourceExternal) {
+    return;
+  }
+
+  try {
+    await transactionService.notifyCentralBank(eventData);
+  } catch (error: any) {
+    logger.error(
+      `Failed to notify central bank for transaction ${transactionId}: ${error.message}`,
+    );
+  }
+}
+
+async function handleAccountDebitFailed(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const { transactionId, error, errorCode, timestamp } = eventData;
+  await transactionService.updateStatus(transactionId, {
+    status: TransactionStatus.FAILED,
+    errorDetails: `event: ${TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_FAILED}, error: ${error}, errorCode: ${errorCode}`,
+    completedAt: new Date(timestamp!),
+  });
+}
+
+async function handleAccountDebitCompensated(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const { transactionId, compensatedAt } = eventData;
+  await transactionService.updateStatus(transactionId, {
+    status: TransactionStatus.FAILED,
+    errorDetails: `event: ${TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_COMPENSATED}`,
+    compensatedAt: compensatedAt,
+    completedAt: compensatedAt,
+  });
+}

@@ -1,13 +1,14 @@
 import { Consumer } from 'kafkajs';
-import { TRANSACTION_TOPICS, TRANSACTION_EVENT_TYPES } from '@vbank/constants';
+import {
+  TRANSACTION_TOPICS,
+  TRANSACTION_EVENT_TYPES,
+  TransactionEventData,
+} from '@vbank/constants';
 import logger from '../../config/logger';
 import { kafkaClient } from '../kafka';
 import { accountService } from '../../services/account.service';
 import { TransactionType } from '../../types/transaction.types';
-import {
-  TransactionEventData,
-  publishTransactionEvent,
-} from '../producers/transactionEvents.producer';
+import { publishTransactionEvent } from '../producers/transactionEvents.producer';
 
 export const startTransactionEventsConsumer = async (): Promise<Consumer> => {
   const consumer = kafkaClient.createConsumer('as-transaction-events-cg');
@@ -66,13 +67,27 @@ export const startTransactionEventsConsumer = async (): Promise<Consumer> => {
   return consumer;
 };
 
-async function handleTransactionInitiated(eventData: any): Promise<void> {
-  const { transactionId, sourceAccountNumber, amount, transactionType } =
-    eventData;
+async function handleTransactionInitiated(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const {
+    transactionId,
+    sourceAccountNumber,
+    amount,
+    transactionType,
+    isSourceExternal,
+  } = eventData;
 
   try {
     if (transactionType !== 'transfer') {
       throw new Error(`Unsupported transaction type: ${transactionType}`);
+    }
+
+    if (isSourceExternal) {
+      logger.info(
+        `External source account detected for transaction ${transactionId}. Skipping debit.`,
+      );
+      return;
     }
 
     const sourceAccount = await accountService.updateBalance(
@@ -101,8 +116,22 @@ async function handleTransactionInitiated(eventData: any): Promise<void> {
   }
 }
 
-async function handleAccountDebited(eventData: any): Promise<void> {
-  const { transactionId, destinationAccountNumber, amount } = eventData;
+async function handleAccountDebited(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const {
+    transactionId,
+    destinationAccountNumber,
+    amount,
+    isDestinationExternal,
+  } = eventData;
+
+  if (isDestinationExternal) {
+    logger.info(
+      `External destination account detected for transaction ${transactionId}. Skipping credit.`,
+    );
+    return;
+  }
 
   try {
     const destinationAccount = await accountService.updateBalance(
@@ -131,8 +160,18 @@ async function handleAccountDebited(eventData: any): Promise<void> {
   }
 }
 
-async function handleAccountCreditFailed(eventData: any): Promise<void> {
-  const { transactionId, sourceAccountNumber, amount } = eventData;
+async function handleAccountCreditFailed(
+  eventData: TransactionEventData,
+): Promise<void> {
+  const { transactionId, sourceAccountNumber, amount, isSourceExternal } =
+    eventData;
+
+  if (isSourceExternal) {
+    logger.info(
+      `External source account detected for transaction ${transactionId}. Skipping compensation.`,
+    );
+    return;
+  }
 
   try {
     const sourceAccount = await accountService.updateBalance(
@@ -142,6 +181,7 @@ async function handleAccountCreditFailed(eventData: any): Promise<void> {
     );
 
     await publishTransactionEvent({
+      ...eventData,
       eventType: TRANSACTION_EVENT_TYPES.ACCOUNT_DEBIT_COMPENSATED,
       transactionId,
       sourceAccountBalance: sourceAccount.balance,

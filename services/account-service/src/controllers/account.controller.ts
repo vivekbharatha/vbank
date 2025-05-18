@@ -46,12 +46,12 @@ export class AccountController {
   }
 
   async get(req: Request, res: Response): Promise<any> {
-    const accounts = await this.accountService.findByAccountNumber(
+    const account = await this.accountService.findByAccountNumber(
       req.params.accountNumber,
       parseInt(req.params.userId),
     );
 
-    return res.status(200).json(accounts);
+    return res.status(200).json(account);
   }
 
   async delete(req: Request, res: Response): Promise<any> {

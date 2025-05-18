@@ -6,19 +6,9 @@ import {
   UpdateDateColumn,
   BeforeInsert,
 } from 'typeorm';
-
 import { v4 as uuidv4 } from 'uuid';
 
-export enum TransactionStatus {
-  INITIATED = 'initiated',
-  DEBIT_SUCCESS = 'debit_success',
-  CREDIT_SUCCESS = 'credit_success',
-  FAILED = 'failed',
-  CREDIT_FAILED = 'credit_failed',
-  DEBIT_COMPENSATE = 'debit_compensate',
-  COMPENSATION_SUCCESS = 'compensation_success',
-  COMPLETED = 'completed',
-}
+import { TransactionStatus } from '@vbank/constants';
 
 export enum TransactionType {
   TRANSFER = 'transfer',
@@ -40,8 +30,8 @@ export class Transaction {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'user_id' })
-  userId: number;
+  @Column({ name: 'user_id', nullable: true })
+  userId?: number;
 
   @Column({ name: 'transaction_id', unique: true })
   transactionId: string;
@@ -81,6 +71,18 @@ export class Transaction {
 
   @Column({ name: 'reference_id', nullable: true })
   referenceId: string;
+
+  @Column({ name: 'source_bank_code', nullable: true })
+  sourceBankCode?: string;
+
+  @Column({ name: 'destination_bank_code', nullable: true })
+  destinationBankCode?: string;
+
+  @Column({ name: 'is_source_external', default: false })
+  isSourceExternal: boolean;
+
+  @Column({ name: 'is_destination_external', default: false })
+  isDestinationExternal: boolean;
 
   @Column({ name: 'is_internal', default: true })
   isInternal: boolean;

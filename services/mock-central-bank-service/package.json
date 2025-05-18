@@ -1,0 +1,33 @@
+{
+  "name": "mock-central-bank-service",
+  "version": "1.0.0",
+  "description": "mock central bank service for vbank to process external transactions",
+  "main": "src/app.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "lint": "eslint --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "test": "jest"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "nanoid": "^5.1.5",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.26.0",
+    "@typescript-eslint/parser": "^8.26.0",
+    "eslint": "^9.21.0",
+    "eslint-config-prettier": "^10.0.2",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.5.3",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.2"
+  }
+}
