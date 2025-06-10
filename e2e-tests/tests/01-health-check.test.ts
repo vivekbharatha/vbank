@@ -21,4 +21,11 @@ describe("Health Check Tests", () => {
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("status", "ok");
   });
+
+  test("Transaction Service health check should return 200 OK", async () => {
+    const response = await accountService().get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty("status", "ok");
+  });
 });

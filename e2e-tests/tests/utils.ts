@@ -26,6 +26,7 @@ export const cleanUpTestState = () => {
 export const apiGateway = () => request(config.apiGatewayUrl);
 export const authService = () => request(config.authServiceUrl);
 export const accountService = () => request(config.accountServiceUrl);
+export const transactionService = () => request(config.transactionServiceUrl);
 export const proxyCentralBankService = () =>
   request(config.centralBankServiceUrl);
 
