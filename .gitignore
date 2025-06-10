@@ -1,7 +1,9 @@
 .env
+.env.production
 .idea
 .DS_Store
 node_modules
 dist
 *.tgz
 notes.md
+todo.md

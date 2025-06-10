@@ -10,6 +10,11 @@ services:
       POSTGRES_DB: vbank
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -21,6 +26,11 @@ services:
     ports:
       - "6379:6379"
       - "8001:8001"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     volumes:
       - redis_data:/data
 
@@ -38,6 +48,17 @@ services:
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_KRAFT_CLUSTER_ID=CLUSTER_ID_1
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "test $(kafka-topics.sh --bootstrap-server localhost:9092 --list | wc -l) -ge 4",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./kafka-init.sh:/docker-entrypoint-initdb.d/kafka-init.sh
 
   kafka-ui:
     image: provectuslabs/kafka-ui
@@ -49,6 +70,93 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     depends_on:
       - kafka
+
+  vbank-api-gateway:
+    image: vbank/api-gateway:latest
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    env_file:
+      - services/api-gateway/.env.production
+    environment:
+      - NODE_ENV=test
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  vbank-auth-service:
+    image: vbank/auth-service:latest
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: auth-service
+    ports:
+      - "3001:3000"
+    env_file:
+      - services/auth-service/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      vbank-api-gateway:
+        condition: service_started
+
+  vbank-account-service:
+    image: vbank/account-service:latest
+    build:
+      context: .
+      dockerfile: services/account-service/Dockerfile
+    container_name: account-service
+    ports:
+      - "3002:3000"
+    env_file:
+      - services/account-service/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      vbank-api-gateway:
+        condition: service_started
+
+  vbank-transaction-service:
+    image: vbank/transaction-service:latest
+    build:
+      context: .
+      dockerfile: services/transaction-service/Dockerfile
+    container_name: transaction-service
+    ports:
+      - "3003:3000"
+    env_file:
+      - services/transaction-service/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      vbank-api-gateway:
+        condition: service_started
+
+  mock-central-bank-service:
+    image: vbank/mock-central-bank-service:latest
+    build:
+      context: .
+      dockerfile: services/mock-central-bank-service/Dockerfile
+    container_name: mock-central-bank-service
+    env_file:
+      - services/mock-central-bank-service/.env.production
+    ports:
+      - "5010:3000"
 
 volumes:
   redis_data:
